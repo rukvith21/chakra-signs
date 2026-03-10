@@ -18,14 +18,19 @@ Real-time hand gesture recognition with custom gesture training, combination det
 ### 1. Create a virtual environment
 
 ```bash
-cd proj_ninja_handgesture
-python3 -m venv venv
-source venv/bin/activate
+cd chakra-signs
+python -m venv .venv
 ```
+
+Activate the environment:
+
+- **Windows (PowerShell)**: `.\.venv\Scripts\Activate.ps1`
+- **macOS/Linux**: `source .venv/bin/activate`
 
 ### 2. Install dependencies
 
 ```bash
+python -m pip install --upgrade pip
 pip install -r backend/requirements.txt
 ```
 
@@ -44,9 +49,25 @@ A window opens showing your webcam with hand landmarks drawn in real time.
 | `q` | Quit |
 | `p` | Print current landmarks to the console |
 
+Optional runtime overrides:
+
+```bash
+python backend/scripts/run_detection.py --camera-index 0 --width 1280 --height 720
+python backend/scripts/run_detection.py --max-hands 2 --min-detection-confidence 0.75
+python backend/scripts/run_detection.py --no-mirror
+```
+
 ### Configuration
 
 Edit `config.json` in the project root to change detection thresholds or camera settings.
+Runtime flags override config values for the current run only.
+
+### Current Phase 1–2 refinements
+
+- Typed config validation with safe defaults (`backend/app/core/config.py`)
+- Cleaner detector runner with CLI overrides and logging (`backend/scripts/run_detection.py`)
+- Mirror mode configurable from config or CLI (`camera.mirror` / `--no-mirror`)
+- Better startup/setup docs for cross-platform environments
 
 ## Project structure
 
