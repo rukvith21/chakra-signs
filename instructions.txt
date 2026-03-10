@@ -1,0 +1,228 @@
+Goal
+Create a production-style project that does all of the following:
+Detect one or two hands in real time from webcam video.
+Extract hand landmarks and interpret the current hand sign.
+Support custom user-defined gestures by recording samples and training on them.
+Recognize multi-step gesture combinations such as sequences and two-hand combinations.
+Generate a visual animation that shows how the detected gesture or combination was formed step by step.
+Be modular, clean, and implemented in phases so each stage works before moving to the next.
+Technical direction
+Use MediaPipe Hand Landmarker / Gesture Recognizer for real-time hand landmark detection because it supports real-time gesture recognition and exposes hand landmarks for web and app pipelines.
+Use OpenCV for webcam capture, frame processing, overlays, and recording datasets.
+For custom gesture classification, start with a simple landmark-based classifier first, such as RandomForestClassifier from scikit-learn, then keep the code structured so it can later be upgraded to a PyTorch deep learning model. scikit-learn documents RandomForestClassifier and good practice around reproducibility with random_state.
+For gesture sequences and combinations, add a second-stage temporal model using PyTorch, preferably an LSTM or sequence classifier on top of landmark vectors over time. PyTorch is the recommended deep learning framework here and its docs show the standard model-building workflow with torch.nn.Module.
+For 3D or polished visual playback of gesture formation, use Three.js with glTF-ready animation support for the frontend visualization module.
+Preferred stack
+Backend / ML: Python
+Core CV: OpenCV
+Hand tracking: MediaPipe
+ML training: scikit-learn first, PyTorch for sequence recognition
+API: FastAPI
+Frontend: React + TypeScript
+Gesture animation viewer: Three.js
+Storage: local project folders plus JSON/CSV metadata
+Optional later: SQLite for sample/session tracking
+Functional requirements
+Implement these features:
+A. Real-time hand detection
+Open webcam feed.
+Detect up to 2 hands.
+Draw landmarks and joint connections on screen.
+Display handedness if available: left or right.
+Show live FPS and detection confidence.
+B. Custom gesture data collection
+Create a recording mode where the user can press a key or button to label a gesture.
+Save multiple samples per gesture.
+Store:
+gesture label
+handedness
+timestamp
+normalized landmark coordinates
+optional raw frame image
+Normalize landmarks so the classifier is less sensitive to hand position and scale.
+Include dataset versioning.
+C. Gesture training
+Build a training pipeline that:
+loads saved landmark samples
+splits into train/validation/test
+trains a baseline classifier for static gestures
+reports accuracy, precision, recall, F1, and confusion matrix
+Save the trained model to disk.
+Add retraining support whenever new gestures are added.
+D. Real-time gesture inference
+Load the trained model.
+Predict the current gesture from live landmark data.
+Show top prediction and confidence.
+Smooth predictions over time to reduce flicker.
+E. Two-hand and combination recognition
+Support both:
+Simultaneous combinations
+Example: left hand = sign A, right hand = sign B, interpret as combo AB.
+Sequential combinations
+Example: sign A then B then C within a time window.
+Implement:
+a rule-based combination engine first
+then a learned sequence model using PyTorch for temporal recognition
+F. Step-by-step gesture animation
+Create a gesture replay / animation module that can:
+show the detected landmark path over time
+replay a recorded sample step by step
+animate finger and joint movement frame by frame
+support side-by-side comparison:
+user live gesture
+reference gesture
+export animation as JSON timeline and optionally MP4 or GIF
+G. Project quality
+Use clean architecture.
+Add docstrings only where useful.
+Use type hints.
+Keep files modular.
+Add error handling.
+Add logging.
+Add a README with setup and usage.
+Build this in phases
+Do not build everything at once. Implement in this exact order and stop after each phase to verify it works.
+Phase 1: Project setup
+Create folder structure
+Create Python virtual environment file references
+Add requirements
+Add backend and frontend skeleton
+Add README starter
+Phase 2: Live hand landmark detection
+Implement webcam stream with OpenCV
+Integrate MediaPipe hand landmark detection
+Draw landmarks and print landmark arrays
+Verify one-hand and two-hand detection
+Phase 3: Dataset recorder
+Build a gesture recording tool
+Let user input a custom label
+Save normalized landmark vectors and metadata
+Store samples in organized folders
+Phase 4: Static gesture classifier
+Train a baseline model on recorded landmark data
+Save metrics and model artifact
+Build inference script for live classification
+Phase 5: Real-time app integration
+Connect detector + classifier
+Show live predictions on screen
+Add smoothing and confidence filtering
+Phase 6: Combination engine
+Detect simultaneous two-hand combinations
+Detect temporal sequences with configurable time windows
+Build a rule-based interpreter first
+Phase 7: Sequence model
+Add PyTorch temporal model for gesture sequences
+Train on recorded gesture timelines
+Compare performance with rule-based approach
+Phase 8: Animation and replay
+Build a React + Three.js viewer
+Replay gesture samples step by step
+Show joint movement timeline
+Add reference-vs-live comparison
+Phase 9: API and UI polish
+FastAPI endpoints for:
+add gesture
+list gestures
+train model
+predict gesture
+replay gesture
+Build frontend controls for recording, training, predicting, and replay
+Phase 10: Final cleanup
+Improve code structure
+Add tests
+Add configuration files
+Finish README
+Add sample demo workflow
+Folder structure
+Use a structure close to this:
+hand-gesture-project/
+  backend/
+    app/
+      api/
+      core/
+      detection/
+      training/
+      inference/
+      sequences/
+      animation/
+      utils/
+    data/
+      raw/
+      processed/
+      labels/
+      recordings/
+      models/
+      metrics/
+    scripts/
+    tests/
+    requirements.txt
+  frontend/
+    src/
+      components/
+      pages/
+      hooks/
+      utils/
+      three/
+    package.json
+  README.md
+Data design
+Create a clear schema for gesture samples. Each sample should include:
+sample_id
+gesture_label
+frame_sequence or landmark_sequence
+handedness
+num_hands
+normalized_landmarks
+raw_landmarks
+timestamp
+source_video or webcam_session_id
+Model design
+Implement two model layers:
+Static gesture model
+Input: flattened normalized landmarks for one frame
+Output: single gesture class
+Baseline: RandomForestClassifier
+Keep interface generic so another model can replace it later
+Temporal / combination model
+Input: sequence of landmark frames over time
+Output: gesture sequence or combination class
+Baseline: rule engine
+Upgrade: PyTorch LSTM or GRU classifier
+Important implementation details
+Normalize landmarks relative to wrist and hand scale
+Handle missing hand frames gracefully
+Separate left and right hand pipelines
+Add debounce logic for stable gesture output
+Use confidence thresholds
+Add calibration mode for user-specific gestures
+Make all thresholds configurable from a settings file
+UI requirements
+Frontend should include:
+webcam preview
+current gesture label
+confidence score
+left/right hand info
+record new gesture button
+retrain model button
+combination history panel
+replay animation viewer
+debug panel for landmarks and predictions
+Deliverables
+Produce:
+full source code
+requirements and setup steps
+backend API
+frontend UI
+model training scripts
+sample data schema
+README
+testing instructions
+demo workflow
+Coding rules
+Write code step by step, phase by phase
+After each phase, explain what was built and how to run it
+Do not skip broken dependencies
+If a library API has changed, adapt to the current version instead of using deprecated patterns
+Prefer maintainable code over clever code
+Keep the project local-first
+Do not use fake placeholder logic where real implementation is possible

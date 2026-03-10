@@ -1,0 +1,9 @@
+{
+  "name": "chakra-signs-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chakra Signs — gesture animation viewer (React + Three.js)",
+  "scripts": {
+    "dev": "echo 'Frontend not yet implemented — coming in Phase 8+'"
+  }
+}

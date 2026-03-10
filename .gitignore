@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+.DS_Store
+node_modules/
+backend/data/raw/*
+backend/data/processed/*
+backend/data/recordings/*
+backend/data/models/*
+backend/data/metrics/*
+!backend/data/**/.gitkeep
