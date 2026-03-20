@@ -13,13 +13,13 @@ Real-time hand gesture recognition with custom gesture training, combination det
 | API | FastAPI |
 | Frontend | React + TypeScript + Three.js |
 
-## Quick start (Phase 1–2: live hand detection)
+## Quick start
 
 ### 1. Create a virtual environment
 
 ```bash
-cd proj_ninja_handgesture
-python3 -m venv venv
+cd chakra-signs
+python -m venv venv
 source venv/bin/activate
 ```
 
@@ -29,15 +29,11 @@ source venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-### 3. Run the hand detector
+### 3. Run the hand detector (Phase 2)
 
 ```bash
 python backend/scripts/run_detection.py
 ```
-
-A window opens showing your webcam with hand landmarks drawn in real time.
-
-**Controls**
 
 | Key | Action |
 |-----|--------|
@@ -50,8 +46,6 @@ A window opens showing your webcam with hand landmarks drawn in real time.
 python backend/scripts/record_gestures.py
 ```
 
-A window opens with the webcam feed. All controls are in the OpenCV window:
-
 | Key | Action |
 |-----|--------|
 | `n` | Type a new gesture label (Enter to confirm, Esc to cancel) |
@@ -59,11 +53,28 @@ A window opens with the webcam feed. All controls are in the OpenCV window:
 | `d` | Print dataset summary to the console |
 | `q` | Quit (bumps dataset version if samples were saved) |
 
-Samples are saved to `backend/data/raw/<label>/` as JSON files containing raw + normalized landmarks, handedness, and metadata.
+### 5. Record Naruto hand signs
+
+```bash
+python backend/scripts/record_naruto.py
+```
+
+| Key | Action |
+|-----|--------|
+| `1`–`9`, `0`, `-`, `=` | Select one of 12 Naruto hand signs |
+| `r` | Toggle recording on/off |
+| `d` | Print dataset summary |
+| `q` | Quit |
+
+### 6. Train the model (Phase 4)
+
+```bash
+python backend/scripts/train_model.py --labels bird boar dog dragon ox tiger snake rat horse monkey hare ram
+```
 
 ### Configuration
 
-Edit `config.json` in the project root to change detection thresholds, camera settings, or recording parameters (min confidence, cooldown between saves).
+Edit `config.json` in the project root to change detection thresholds, camera settings, or recording parameters.
 
 ## Project structure
 
@@ -91,7 +102,7 @@ Edit `config.json` in the project root to change detection thresholds, camera se
 - [x] Phase 1 — Project skeleton
 - [x] Phase 2 — Live hand landmark detection
 - [x] Phase 3 — Dataset recorder
-- [ ] Phase 4 — Static gesture classifier
+- [x] Phase 4 — Static gesture classifier
 - [ ] Phase 5 — Real-time inference
 - [ ] Phase 6 — Combination engine
 - [ ] Phase 7 — Sequence model (PyTorch)

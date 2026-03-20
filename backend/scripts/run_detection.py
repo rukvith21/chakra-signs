@@ -90,7 +90,6 @@ def main() -> None:
     print("Controls:  q = quit,  p = print landmarks to console")
     print("-" * 50)
 
-    # Camera warm-up: some backends need a few frames before delivering data
     for _ in range(30):
         ok, _ = cap.read()
         if ok:
@@ -129,7 +128,7 @@ def main() -> None:
             key = cv2.waitKey(1) & 0xFF
             if key == ord("q"):
                 break
-            elif key == ord("p"):
+            if key == ord("p"):
                 _print_landmarks(result)
     finally:
         detector.close()

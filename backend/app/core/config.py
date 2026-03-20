@@ -22,12 +22,17 @@ class DetectionConfig:
     min_tracking_confidence: float = 0.5
 
 
-def load_config() -> dict[str, Any]:
-    """Load project configuration from config.json at the project root."""
-    if CONFIG_PATH.exists():
-        with open(CONFIG_PATH) as f:
-            cfg: dict[str, Any] = json.load(f)
-        logger.info("Loaded config from %s", CONFIG_PATH)
+def load_config(config_path: Path | None = None) -> dict[str, Any]:
+    """Load project configuration from a JSON file."""
+    target_path = config_path or CONFIG_PATH
+    if target_path.exists():
+        try:
+            with open(target_path, encoding="utf-8") as f:
+                cfg: dict[str, Any] = json.load(f)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON in config file: %s. Using defaults.", target_path)
+            return {}
+        logger.info("Loaded config from %s", target_path)
         return cfg
-    logger.warning("Config not found at %s — using defaults", CONFIG_PATH)
+    logger.warning("Config not found at %s — using defaults", target_path)
     return {}
