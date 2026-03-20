@@ -44,9 +44,26 @@ A window opens showing your webcam with hand landmarks drawn in real time.
 | `q` | Quit |
 | `p` | Print current landmarks to the console |
 
+### 4. Record gesture samples (Phase 3)
+
+```bash
+python backend/scripts/record_gestures.py
+```
+
+A window opens with the webcam feed. All controls are in the OpenCV window:
+
+| Key | Action |
+|-----|--------|
+| `n` | Type a new gesture label (Enter to confirm, Esc to cancel) |
+| `r` | Toggle recording on/off |
+| `d` | Print dataset summary to the console |
+| `q` | Quit (bumps dataset version if samples were saved) |
+
+Samples are saved to `backend/data/raw/<label>/` as JSON files containing raw + normalized landmarks, handedness, and metadata.
+
 ### Configuration
 
-Edit `config.json` in the project root to change detection thresholds or camera settings.
+Edit `config.json` in the project root to change detection thresholds, camera settings, or recording parameters (min confidence, cooldown between saves).
 
 ## Project structure
 
@@ -73,7 +90,7 @@ Edit `config.json` in the project root to change detection thresholds or camera 
 
 - [x] Phase 1 — Project skeleton
 - [x] Phase 2 — Live hand landmark detection
-- [ ] Phase 3 — Dataset recorder
+- [x] Phase 3 — Dataset recorder
 - [ ] Phase 4 — Static gesture classifier
 - [ ] Phase 5 — Real-time inference
 - [ ] Phase 6 — Combination engine

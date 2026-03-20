@@ -10,14 +10,16 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 CONFIG_PATH = PROJECT_ROOT / "config.json"
+DEFAULT_MODEL_PATH = PROJECT_ROOT / "backend" / "data" / "models" / "hand_landmarker.task"
 
 
 @dataclass
 class DetectionConfig:
-    max_num_hands: int = 2
-    min_detection_confidence: float = 0.7
+    model_path: str = str(DEFAULT_MODEL_PATH)
+    num_hands: int = 2
+    min_hand_detection_confidence: float = 0.7
+    min_hand_presence_confidence: float = 0.5
     min_tracking_confidence: float = 0.5
-    model_complexity: int = 1
 
 
 def load_config() -> dict[str, Any]:

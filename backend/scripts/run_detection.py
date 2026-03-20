@@ -22,6 +22,7 @@ import numpy as np
 
 from backend.app.core.config import DetectionConfig, load_config
 from backend.app.detection.hand_detector import DetectionResult, HandDetector
+from backend.app.utils.hud import text_with_bg
 
 _HAND_COLORS = {
     "Left": (255, 180, 0),
@@ -29,51 +30,25 @@ _HAND_COLORS = {
 }
 
 
-def _text_with_bg(
-    frame: np.ndarray,
-    text: str,
-    pos: tuple[int, int],
-    scale: float = 0.65,
-    color: tuple[int, int, int] = (255, 255, 255),
-    thickness: int = 2,
-    bg_alpha: float = 0.55,
-) -> None:
-    """Draw *text* at *pos* with a semi-transparent dark background."""
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    (tw, th), baseline = cv2.getTextSize(text, font, scale, thickness)
-    x, y = pos
-    pad = 5
-    overlay = frame.copy()
-    cv2.rectangle(
-        overlay,
-        (x - pad, y - th - pad),
-        (x + tw + pad, y + baseline + pad),
-        (0, 0, 0),
-        -1,
-    )
-    cv2.addWeighted(overlay, bg_alpha, frame, 1 - bg_alpha, 0, frame)
-    cv2.putText(frame, text, (x, y), font, scale, color, thickness, cv2.LINE_AA)
-
-
 def _draw_hud(frame: np.ndarray, result: DetectionResult, fps: float) -> np.ndarray:
     h = frame.shape[0]
 
-    _text_with_bg(frame, f"FPS: {fps:.0f}", (12, 30), 0.70, (0, 255, 100))
-    _text_with_bg(frame, f"Hands: {result.num_hands}", (12, 64), 0.70, (0, 255, 100))
+    text_with_bg(frame, f"FPS: {fps:.0f}", (12, 30), 0.70, (0, 255, 100))
+    text_with_bg(frame, f"Hands: {result.num_hands}", (12, 64), 0.70, (0, 255, 100))
 
     for i, hand in enumerate(result.hands):
         color = _HAND_COLORS.get(hand.handedness, (255, 255, 255))
         y = 104 + i * 36
-        _text_with_bg(frame, f"{hand.handedness} | conf {hand.confidence:.0%}", (12, y), 0.62, color)
+        text_with_bg(frame, f"{hand.handedness} | conf {hand.confidence:.0%}", (12, y), 0.62, color)
 
-    _text_with_bg(
+    text_with_bg(
         frame,
         f"Detection: {result.processing_time_ms:.1f} ms",
         (12, h - 44),
         0.52,
         (180, 180, 180),
     )
-    _text_with_bg(frame, "q: quit | p: print landmarks", (12, h - 14), 0.50, (160, 160, 160))
+    text_with_bg(frame, "q: quit | p: print landmarks", (12, h - 14), 0.50, (160, 160, 160))
     return frame
 
 
@@ -93,10 +68,10 @@ def main() -> None:
     cam = cfg.get("camera", {})
 
     detection_config = DetectionConfig(
-        max_num_hands=det.get("max_num_hands", 2),
-        min_detection_confidence=det.get("min_detection_confidence", 0.7),
+        num_hands=det.get("num_hands", 2),
+        min_hand_detection_confidence=det.get("min_hand_detection_confidence", 0.7),
+        min_hand_presence_confidence=det.get("min_hand_presence_confidence", 0.5),
         min_tracking_confidence=det.get("min_tracking_confidence", 0.5),
-        model_complexity=det.get("model_complexity", 1),
     )
     detector = HandDetector(detection_config)
 
@@ -115,16 +90,29 @@ def main() -> None:
     print("Controls:  q = quit,  p = print landmarks to console")
     print("-" * 50)
 
+    # Camera warm-up: some backends need a few frames before delivering data
+    for _ in range(30):
+        ok, _ = cap.read()
+        if ok:
+            break
+        time.sleep(0.05)
+
     fps = 0.0
     ema_weight = 0.1
     prev_time = time.perf_counter()
+    consecutive_failures = 0
 
     try:
         while True:
             ok, frame = cap.read()
             if not ok:
-                print("ERROR: Failed to read frame")
-                break
+                consecutive_failures += 1
+                if consecutive_failures > 30:
+                    print("ERROR: Too many consecutive frame read failures")
+                    break
+                time.sleep(0.01)
+                continue
+            consecutive_failures = 0
 
             frame = cv2.flip(frame, 1)
             result = detector.process_frame(frame)

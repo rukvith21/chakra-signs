@@ -7,6 +7,8 @@ from dataclasses import dataclass
 import cv2
 import mediapipe as mp
 import numpy as np
+from mediapipe.tasks import python as mp_python
+from mediapipe.tasks.python import vision
 
 from backend.app.core.config import DetectionConfig
 
@@ -35,48 +37,61 @@ class DetectionResult:
     processing_time_ms: float
 
 
+_HAND_CONNECTIONS = vision.HandLandmarksConnections.HAND_CONNECTIONS
+
+
 class HandDetector:
-    """Wraps MediaPipe Hands for real-time landmark detection."""
+    """Wraps MediaPipe HandLandmarker (tasks API) for real-time detection."""
 
     def __init__(self, config: DetectionConfig | None = None) -> None:
         self.config = config or DetectionConfig()
-        self._mp_hands = mp.solutions.hands
-        self._mp_drawing = mp.solutions.drawing_utils
-        self._mp_styles = mp.solutions.drawing_styles
-        self._hands = self._mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=self.config.max_num_hands,
-            min_detection_confidence=self.config.min_detection_confidence,
-            min_tracking_confidence=self.config.min_tracking_confidence,
-            model_complexity=self.config.model_complexity,
+
+        base_options = mp_python.BaseOptions(
+            model_asset_path=self.config.model_path,
         )
-        self._raw_results = None
+        options = vision.HandLandmarkerOptions(
+            base_options=base_options,
+            running_mode=vision.RunningMode.VIDEO,
+            num_hands=self.config.num_hands,
+            min_hand_detection_confidence=self.config.min_hand_detection_confidence,
+            min_hand_presence_confidence=self.config.min_hand_presence_confidence,
+            min_tracking_confidence=self.config.min_tracking_confidence,
+        )
+        self._landmarker = vision.HandLandmarker.create_from_options(options)
+        self._last_result: vision.HandLandmarkerResult | None = None
+        self._frame_ts_ms: int = 0
+
         logger.info(
-            "HandDetector ready  max_hands=%d  det_conf=%.2f  track_conf=%.2f",
-            self.config.max_num_hands,
-            self.config.min_detection_confidence,
+            "HandDetector ready  num_hands=%d  det_conf=%.2f  presence_conf=%.2f  track_conf=%.2f",
+            self.config.num_hands,
+            self.config.min_hand_detection_confidence,
+            self.config.min_hand_presence_confidence,
             self.config.min_tracking_confidence,
         )
 
     def process_frame(self, frame: np.ndarray) -> DetectionResult:
-        """Run MediaPipe on a BGR frame, return structured results."""
+        """Run HandLandmarker on a BGR frame, return structured results."""
         start = time.perf_counter()
+
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        rgb.flags.writeable = False
-        self._raw_results = self._hands.process(rgb)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+
+        self._frame_ts_ms += 33  # ~30 fps monotonic timestamp
+        raw = self._landmarker.detect_for_video(mp_image, self._frame_ts_ms)
+        self._last_result = raw
+
         elapsed_ms = (time.perf_counter() - start) * 1000.0
 
         hands: list[HandData] = []
-        raw = self._raw_results
-        if raw.multi_hand_landmarks and raw.multi_handedness:
-            for lm, hn in zip(raw.multi_hand_landmarks, raw.multi_handedness):
-                cls = hn.classification[0]
-                landmarks = [(p.x, p.y, p.z) for p in lm.landmark]
+        if raw.hand_landmarks and raw.handedness:
+            for lm_list, hn_list in zip(raw.hand_landmarks, raw.handedness):
+                top = hn_list[0]
+                landmarks = [(lm.x, lm.y, lm.z) for lm in lm_list]
                 hands.append(
                     HandData(
                         landmarks=landmarks,
-                        handedness=cls.label,
-                        confidence=cls.score,
+                        handedness=top.category_name,
+                        confidence=top.score,
                     )
                 )
 
@@ -87,18 +102,16 @@ class HandDetector:
         )
 
     def draw_on_frame(self, frame: np.ndarray) -> np.ndarray:
-        """Draw MediaPipe landmarks and connections onto *frame* in-place."""
-        if self._raw_results and self._raw_results.multi_hand_landmarks:
-            for hand_lm in self._raw_results.multi_hand_landmarks:
-                self._mp_drawing.draw_landmarks(
+        """Draw hand landmarks and connections onto *frame* in-place."""
+        if self._last_result and self._last_result.hand_landmarks:
+            for lm_list in self._last_result.hand_landmarks:
+                vision.drawing_utils.draw_landmarks(
                     frame,
-                    hand_lm,
-                    self._mp_hands.HAND_CONNECTIONS,
-                    self._mp_styles.get_default_hand_landmarks_style(),
-                    self._mp_styles.get_default_hand_connections_style(),
+                    lm_list,
+                    _HAND_CONNECTIONS,
                 )
         return frame
 
     def close(self) -> None:
-        self._hands.close()
+        self._landmarker.close()
         logger.info("HandDetector closed")
