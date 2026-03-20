@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "gestures": {
     "two-hands": {
       "count": 56,
@@ -28,8 +28,28 @@
     "ox": {
       "count": 335,
       "last_updated": "2026-03-10T22:17:02.849668+00:00"
+    },
+    "tiger": {
+      "count": 206,
+      "last_updated": "2026-03-20T02:39:57.961582+00:00"
+    },
+    "snake": {
+      "count": 144,
+      "last_updated": "2026-03-20T02:41:27.422486+00:00"
+    },
+    "rat": {
+      "count": 347,
+      "last_updated": "2026-03-20T02:45:35.017904+00:00"
+    },
+    "monkey": {
+      "count": 314,
+      "last_updated": "2026-03-20T02:47:58.330327+00:00"
+    },
+    "hare": {
+      "count": 318,
+      "last_updated": "2026-03-20T02:50:23.299703+00:00"
     }
   },
-  "total_samples": 1933,
-  "version_bumped_at": "2026-03-10T22:22:48.853345+00:00"
+  "total_samples": 3262,
+  "version_bumped_at": "2026-03-20T03:07:41.663085+00:00"
 }
