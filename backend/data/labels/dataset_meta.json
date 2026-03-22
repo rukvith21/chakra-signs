@@ -1,10 +1,6 @@
 {
   "version": 8,
   "gestures": {
-    "two-hands": {
-      "count": 56,
-      "last_updated": "2026-03-10T21:07:22.263462+00:00"
-    },
     "horse": {
       "count": 621,
       "last_updated": "2026-03-20T05:04:00.945760+00:00"
@@ -50,6 +46,6 @@
       "last_updated": "2026-03-22T16:23:10.488033+00:00"
     }
   },
-  "total_samples": 6178,
+  "total_samples": 6122,
   "version_bumped_at": "2026-03-22T16:59:45.871095+00:00"
 }
