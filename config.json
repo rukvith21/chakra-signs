@@ -15,5 +15,13 @@
     "min_confidence": 0.6,
     "cooldown_ms": 150,
     "save_raw_frames": false
+  },
+  "inference": {
+    "model_type": "random_forest",
+    "min_hand_confidence": 0.6,
+    "min_prediction_confidence": 0.75,
+    "hold_prediction_ms": 700,
+    "smoothing_window": 9,
+    "smoothing_min_votes": 4
   }
 }

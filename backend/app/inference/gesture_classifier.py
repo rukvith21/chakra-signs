@@ -10,16 +10,38 @@ from backend.app.core.config import PROJECT_ROOT
 _MODELS_DIR = PROJECT_ROOT / "backend" / "data" / "models"
 
 
+def _default_model_path(model_type: str) -> Path:
+    if model_type == "random_forest":
+        preferred = _MODELS_DIR / "gesture_random_forest.joblib"
+        legacy = _MODELS_DIR / "gesture_clf.joblib"
+        return preferred if preferred.exists() else legacy
+    if model_type == "mlp":
+        return _MODELS_DIR / "gesture_mlp.joblib"
+    raise ValueError(f"Unsupported model_type: {model_type}")
+
+
+def _default_encoder_path(model_type: str) -> Path:
+    if model_type == "random_forest":
+        preferred = _MODELS_DIR / "label_encoder_random_forest.joblib"
+        legacy = _MODELS_DIR / "label_encoder.joblib"
+        return preferred if preferred.exists() else legacy
+    if model_type == "mlp":
+        return _MODELS_DIR / "label_encoder_mlp.joblib"
+    raise ValueError(f"Unsupported model_type: {model_type}")
+
+
 class GestureClassifier:
     """Loads trained model artifacts and predicts gesture labels."""
 
     def __init__(
         self,
+        model_type: str = "random_forest",
         model_path: Path | None = None,
         encoder_path: Path | None = None,
     ) -> None:
-        self.model_path = model_path or (_MODELS_DIR / "gesture_clf.joblib")
-        self.encoder_path = encoder_path or (_MODELS_DIR / "label_encoder.joblib")
+        self.model_type = model_type
+        self.model_path = model_path or _default_model_path(model_type)
+        self.encoder_path = encoder_path or _default_encoder_path(model_type)
 
         if not self.model_path.exists():
             raise FileNotFoundError(f"Model file not found: {self.model_path}")
@@ -30,10 +52,7 @@ class GestureClassifier:
         self._encoder = joblib.load(self.encoder_path)
 
     def predict(self, features: list[float]) -> tuple[str, float]:
-        """Predict a gesture label from a single feature vector.
-
-        Returns `(label, confidence)` where confidence is the top class score.
-        """
+        """Predict a gesture label from a single feature vector."""
         x = np.array([features], dtype=np.float32)
         pred_idx = int(self._clf.predict(x)[0])
         label = str(self._encoder.inverse_transform([pred_idx])[0])

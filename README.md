@@ -69,7 +69,7 @@ python backend/scripts/record_naruto.py
 ### 6. Train the model (Phase 4)
 
 ```bash
-python backend/scripts/train_model.py --labels bird boar dog dragon ox tiger snake rat horse monkey hare ram
+python backend/scripts/train_model.py --labels bird boar dog dragon hare horse monkey ox rat snake tiger --model all --split-mode session
 ```
 
 ### Configuration

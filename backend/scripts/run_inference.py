@@ -23,8 +23,8 @@ import numpy as np
 from backend.app.core.config import DetectionConfig, load_config
 from backend.app.detection.hand_detector import DetectionResult, HandDetector
 from backend.app.inference.gesture_classifier import GestureClassifier
+from backend.app.utils.gesture_features import build_feature_vector
 from backend.app.utils.hud import text_with_bg
-from backend.app.utils.normalizer import normalize_landmarks
 
 
 class _TemporalSmoother:
@@ -86,14 +86,7 @@ def _features_from_two_hands(
     left_raw: list[tuple[float, float, float]],
     right_raw: list[tuple[float, float, float]],
 ) -> list[float]:
-    left_norm = normalize_landmarks(list(left_raw))
-    right_norm = normalize_landmarks(list(right_raw))
-    combined = left_norm + right_norm
-
-    features: list[float] = []
-    for x, y, z in combined:
-        features.extend([x, y, z])
-    return features
+    return build_feature_vector(list(left_raw) + list(right_raw))
 
 
 def _draw_hud(
@@ -145,9 +138,12 @@ def main() -> None:
         min_tracking_confidence=det_cfg.get("min_tracking_confidence", 0.5),
     )
 
+    model_type = str(inf_cfg.get("model_type", "random_forest"))
+
     detector = HandDetector(detection_config)
-    classifier = GestureClassifier()
+    classifier = GestureClassifier(model_type=model_type)
     min_conf = float(inf_cfg.get("min_hand_confidence", rec_cfg.get("min_confidence", 0.5)))
+    min_pred_conf = float(inf_cfg.get("min_prediction_confidence", 0.75))
     hold_ms = float(inf_cfg.get("hold_prediction_ms", 700))
     smoother = _TemporalSmoother(
         window_size=int(inf_cfg.get("smoothing_window", 9)),
@@ -163,7 +159,7 @@ def main() -> None:
         print(f"ERROR: Cannot open webcam (index={cam_index})")
         sys.exit(1)
 
-    print("Real-time Naruto inference started. Press q to quit.")
+    print(f"Real-time Naruto inference started with model='{model_type}'. Press q to quit.")
 
     for _ in range(30):
         ok, _ = cap.read()
@@ -204,12 +200,20 @@ def main() -> None:
             if hands_pair is not None:
                 left_raw, right_raw = hands_pair
                 feats = _features_from_two_hands(left_raw, right_raw)
-                if len(feats) == 126:
+                if len(feats) > 0:
                     raw_label, raw_conf = classifier.predict(feats)
-                    pred_label, pred_conf = smoother.update(raw_label, raw_conf)
-                    last_valid_pred_ts = now
-                    status_text = "TRACKING"
-                    status_color = (0, 220, 0)
+                    if raw_conf < min_pred_conf:
+                        elapsed_ms = (now - last_valid_pred_ts) * 1000.0
+                        status_text = f"NO SIGN {raw_conf:.0%}"
+                        status_color = (0, 165, 255)
+                        if last_valid_pred_ts == 0 or elapsed_ms > hold_ms:
+                            pred_label = "(no sign)"
+                            pred_conf = raw_conf
+                    else:
+                        pred_label, pred_conf = smoother.update(raw_label, raw_conf)
+                        last_valid_pred_ts = now
+                        status_text = "TRACKING"
+                        status_color = (0, 220, 0)
             else:
                 elapsed_ms = (now - last_valid_pred_ts) * 1000.0
                 if last_valid_pred_ts > 0 and elapsed_ms <= hold_ms:
