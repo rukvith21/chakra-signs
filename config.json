@@ -23,5 +23,22 @@
     "hold_prediction_ms": 700,
     "smoothing_window": 9,
     "smoothing_min_votes": 4
-  }
+  },
+  "sequence_recognition": {
+    "stable_frames": 4,
+    "stable_confidence": 0.8,
+    "release_frames": 3,
+    "sequence_timeout_ms": 3000,
+    "jutsu_display_ms": 2200
+  },
+  "jutsu_patterns": [
+    {
+      "name": "Fireball Jutsu",
+      "signs": ["tiger", "ram", "snake"]
+    },
+    {
+      "name": "Shadow Clone Jutsu",
+      "signs": ["boar", "dog", "bird"]
+    }
+  ]
 }

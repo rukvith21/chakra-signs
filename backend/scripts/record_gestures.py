@@ -27,6 +27,7 @@ from backend.app.core.config import DetectionConfig, load_config
 from backend.app.core.schema import GestureSample
 from backend.app.detection.hand_detector import DetectionResult, HandDetector
 from backend.app.training.dataset_manager import DatasetManager
+from backend.app.utils.camera import open_webcam
 from backend.app.utils.hud import text_with_bg
 from backend.app.utils.normalizer import normalize_landmarks
 
@@ -236,26 +237,20 @@ def main() -> None:
     )
 
     cam_index = cam_cfg.get("index", 0)
-    cap = cv2.VideoCapture(cam_index)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, cam_cfg.get("width", 1280))
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cam_cfg.get("height", 720))
-
-    if not cap.isOpened():
-        print(f"ERROR: Cannot open webcam (index={cam_index})")
+    try:
+        camera = open_webcam(
+            camera_index=cam_index,
+            width=cam_cfg.get("width", 1280),
+            height=cam_cfg.get("height", 720),
+        )
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}")
         sys.exit(1)
-
-    actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    print(f"Webcam opened: {actual_w}x{actual_h}")
+    cap = camera.cap
+    print(f"Webcam opened: {camera.width}x{camera.height} via {camera.backend_name}")
     print(f"Session ID: {state.session_id}")
     print("Controls:  r=record  n=new label  d=summary  q=quit")
     print("-" * 50)
-
-    for _ in range(30):
-        ok, _ = cap.read()
-        if ok:
-            break
-        time.sleep(0.05)
 
     fps = 0.0
     ema_weight = 0.1

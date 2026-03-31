@@ -23,6 +23,8 @@ import numpy as np
 from backend.app.core.config import DetectionConfig, load_config
 from backend.app.detection.hand_detector import DetectionResult, HandDetector
 from backend.app.inference.gesture_classifier import GestureClassifier
+from backend.app.sequences import JutsuSequenceEngine, SequenceState, load_jutsu_patterns
+from backend.app.utils.camera import open_webcam
 from backend.app.utils.gesture_features import build_feature_vector
 from backend.app.utils.hud import text_with_bg
 
@@ -89,16 +91,36 @@ def _features_from_two_hands(
     return build_feature_vector(list(left_raw) + list(right_raw))
 
 
+def _pretty_label(label: str | None) -> str:
+    if not label:
+        return "(none)"
+    if label.startswith("(") and label.endswith(")"):
+        return label
+    cleaned = label.replace("_", " ").replace("-", " ")
+    return " ".join(part.capitalize() for part in cleaned.split())
+
+
+def _format_sequence(signs: tuple[str, ...]) -> str:
+    if not signs:
+        return "(empty)"
+    return " -> ".join(_pretty_label(sign) for sign in signs)
+
+
 def _draw_hud(
     frame: np.ndarray,
     result: DetectionResult,
     fps: float,
-    pred_label: str,
-    pred_conf: float,
+    active_sign: str,
+    active_conf: float,
+    sequence_state: SequenceState,
     status_text: str,
     status_color: tuple[int, int, int],
 ) -> np.ndarray:
     h, w = frame.shape[:2]
+    panel_x = max(12, w - 520)
+    active_sign_color = (0, 255, 255) if not active_sign.startswith("(") else (0, 165, 255)
+    sequence_color = (255, 220, 120) if sequence_state.sequence else (160, 160, 160)
+    jutsu_color = (0, 215, 255) if sequence_state.active_jutsu else (160, 160, 160)
 
     text_with_bg(frame, f"FPS: {fps:.0f}", (12, 30), 0.70, (0, 255, 100))
     text_with_bg(frame, f"Hands: {result.num_hands}", (12, 64), 0.70, (0, 255, 100))
@@ -109,9 +131,18 @@ def _draw_hud(
         y = 104 + i * 36
         text_with_bg(frame, f"{hand.handedness} | conf {hand.confidence:.0%}", (12, y), 0.62, color)
 
-    text_with_bg(frame, f"Pred: {pred_label}", (w - 360, 30), 0.95, (0, 255, 255))
-    text_with_bg(frame, f"Conf: {pred_conf:.0%}", (w - 360, 70), 0.70, (220, 220, 220))
-    text_with_bg(frame, status_text, (w - 360, 104), 0.58, status_color)
+    text_with_bg(frame, f"Active Sign: {_pretty_label(active_sign)}", (panel_x, 30), 0.78, active_sign_color)
+    text_with_bg(frame, f"Sign Conf: {active_conf:.0%}", (panel_x, 64), 0.64, (220, 220, 220))
+    text_with_bg(frame, f"Sequence: {_format_sequence(sequence_state.sequence)}", (panel_x, 98), 0.62, sequence_color)
+    text_with_bg(frame, f"Seq State: {sequence_state.last_event}", (panel_x, 132), 0.58, (200, 200, 255))
+    text_with_bg(
+        frame,
+        f"Jutsu: {sequence_state.active_jutsu or '(none)'}",
+        (panel_x, 166),
+        0.70,
+        jutsu_color,
+    )
+    text_with_bg(frame, status_text, (panel_x, 200), 0.58, status_color)
 
     text_with_bg(
         frame,
@@ -130,6 +161,7 @@ def main() -> None:
     cam_cfg = cfg.get("camera", {})
     rec_cfg = cfg.get("recording", {})
     inf_cfg = cfg.get("inference", {})
+    seq_cfg = cfg.get("sequence_recognition", {})
 
     detection_config = DetectionConfig(
         num_hands=det_cfg.get("num_hands", 2),
@@ -149,23 +181,31 @@ def main() -> None:
         window_size=int(inf_cfg.get("smoothing_window", 9)),
         min_votes=int(inf_cfg.get("smoothing_min_votes", 4)),
     )
+    sequence_engine = JutsuSequenceEngine(
+        patterns=load_jutsu_patterns(cfg.get("jutsu_patterns")),
+        stable_frames=int(seq_cfg.get("stable_frames", 4)),
+        stable_confidence=float(seq_cfg.get("stable_confidence", min_pred_conf)),
+        release_frames=int(seq_cfg.get("release_frames", 3)),
+        sequence_timeout_ms=float(seq_cfg.get("sequence_timeout_ms", 3000)),
+        jutsu_display_ms=float(seq_cfg.get("jutsu_display_ms", 2200)),
+    )
 
     cam_index = cam_cfg.get("index", 0)
-    cap = cv2.VideoCapture(cam_index)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, cam_cfg.get("width", 1280))
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cam_cfg.get("height", 720))
-
-    if not cap.isOpened():
-        print(f"ERROR: Cannot open webcam (index={cam_index})")
+    try:
+        camera = open_webcam(
+            camera_index=cam_index,
+            width=cam_cfg.get("width", 1280),
+            height=cam_cfg.get("height", 720),
+        )
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}")
         sys.exit(1)
+    cap = camera.cap
 
-    print(f"Real-time Naruto inference started with model='{model_type}'. Press q to quit.")
-
-    for _ in range(30):
-        ok, _ = cap.read()
-        if ok:
-            break
-        time.sleep(0.05)
+    print(
+        f"Real-time Naruto inference started with model='{model_type}'. "
+        f"Camera={camera.width}x{camera.height} via {camera.backend_name}. Press q to quit."
+    )
 
     fps = 0.0
     ema_weight = 0.1
@@ -194,6 +234,8 @@ def main() -> None:
 
             hands_pair = _ordered_two_hands(result, min_conf)
             now = time.perf_counter()
+            sequence_input_label: str | None = None
+            sequence_input_conf = 0.0
 
             status_text = "SHOW BOTH HANDS"
             status_color = (0, 0, 255)
@@ -212,6 +254,8 @@ def main() -> None:
                     else:
                         pred_label, pred_conf = smoother.update(raw_label, raw_conf)
                         last_valid_pred_ts = now
+                        sequence_input_label = pred_label
+                        sequence_input_conf = pred_conf
                         status_text = "TRACKING"
                         status_color = (0, 220, 0)
             else:
@@ -227,7 +271,17 @@ def main() -> None:
             fps = ema_weight * instant_fps + (1 - ema_weight) * fps if fps > 0 else instant_fps
             prev_time = now
 
-            frame = _draw_hud(frame, result, fps, pred_label, pred_conf, status_text, status_color)
+            sequence_state = sequence_engine.update(sequence_input_label, sequence_input_conf, now)
+            frame = _draw_hud(
+                frame,
+                result,
+                fps,
+                pred_label,
+                pred_conf,
+                sequence_state,
+                status_text,
+                status_color,
+            )
             cv2.imshow("Chakra Signs - Naruto Inference", frame)
 
             key = cv2.waitKey(1) & 0xFF
